@@ -96,9 +96,6 @@ import servicelogger
 import emulcomm
 
 
-# Add AFFIX to Seattle nodemanager. The two keys allows us to 
-# control the AFFIX stack as well as enable or disable AFFIX
-# in Seattle.
 from repyportability import *
 _context = locals()
 add_dy_support(_context)
@@ -125,15 +122,9 @@ def log(*args):
     servicelogger.log(logstring)
 
 
-dy_import_module_symbols("affixstackinterface.r2py")
+affixlib = dy_import_module("affixstackinterface.r2py")
 advertisepipe = dy_import_module("advertisepipe.r2py")
 
-
-affix_service_key = "BetaSeattleAffixStack"
-enable_affix_key = "EnableBetaSeattleAffix"
-affix_enabled = False
-affix_stack_string = None
-check_affix_interval = 15 * 60 # Check for Affix status update every 15 minutes.
 
 
 # JAC: Fix for #1000: This needs to be after ALL repyhhelper calls to prevent 
@@ -203,8 +194,6 @@ node_reset_config = {
   'reset_accepter': False
   }
 
-# Handle to the advertisepipe thread advertising our Zenodotus name (if any)
-zenodotus_advertise_handle = None
 
 # We can enable or disable Debug mode in order to get more
 # verbose output and raise errors.
@@ -266,6 +255,9 @@ def set_accepter(accepter):
   global accepter_thread
   accepter_state['lock'].acquire(True)
   accepter_thread = accepter
+
+  if DEBUG_MODE:
+    servicelogger.log("[DEBUG] Accepter Thread has been set...")
   accepter_state['lock'].release()
   
 # Has the accepter thread started?
@@ -277,12 +269,69 @@ def is_accepter_started():
 
 
 
+# Flags for whether to use Affix, and what Affix to use.
+affix_enabled = True
+affix_string = '(CoordinationAffix)(NatDeciderAffix)'
+
+
+# Store the original Repy API calls.
+old_getmyip = getmyip
+old_listenforconnection = listenforconnection
+old_timeout_listenforconnection = timeout_listenforconnection
+
+
+def enable_affix():
+  """
+  <Purpose>
+    Overload the listenforconnection() and getmyip() API call 
+    if affix is enabled.
+
+  <Arguments>
+    None
+
+  <SideEffects>
+    Original listenforconnection() and getmyip() gets overwrittedn.
+
+  <Exceptions>
+    None
+  """
+  # If Affix is not enabled, we just return.
+  if not affix_enabled:
+    return
+
+  global timeout_listenforconnection
+  global getmyip
+
+  # Load the publickey and generate the zenodotus name for our node.
+  mypubkey = rsa_publickey_to_string(configuration['publickey']).replace(" ", "")
+  my_zeno_name = sha_hexhash(mypubkey) + '.zenodotus.poly.edu'
+
+  advertisepipe.add_to_pipe(my_zeno_name, old_getmyip())
+
+  servicelogger.log("Advertised zenodotus name: %s -> %s" % (my_zeno_name, old_getmyip()))
+
+  # Create my affix object and overwrite the listenforconnection
+  # and the getmyip call.
+  nodemanager_affix = affixlib.AffixStackInterface(affix_string, my_zeno_name)
+
+  # Create a new timeout_listenforconnection that wraps a normal
+  # Affix socket with timeout_socket. This will eventually be
+  # replaced with a TimeoutAffix.
+  def new_timeout_listenforconnection(localip, localport, timeout):
+    sockobj = nodemanager_affix.listenforconnection(localip, localport)
+    return sockobj #timeout_socket(sockobj, timeout)
+
+  # Overload the two functionalities with Affix functionalities
+  # that will be used later on.
+  timeout_listenforconnection = new_timeout_listenforconnection
+  getmyip = nodemanager_affix.getmyip
+
+  servicelogger.log('[INFO] Nodemanager now using Affix string: ' + affix_string)
+
+
 
 def start_accepter():
   global accepter_thread
-  global affix_enabled
-  global affix_stack_string
-  global zenodotus_advertise_handle
 
   # do this until we get the accepter started...
   while True:
@@ -303,18 +352,12 @@ def start_accepter():
         # serversocket.
         pass
 
-      # Similarly, stop advertising my old Zenodotus name (if any), 
-      # ignoring potential errors.
-      try:
-	advertisepipe.remove_from_pipe(zenodotus_advertise_handle)
-      except:
-        pass
 
       # Just use getmyip(), this is the default behavior and will work if we have preferences set
       # We only want to call getmyip() once, rather than in the loop since this potentially avoids
       # rebuilding the allowed IP cache for each possible port
-      bind_ip = emulcomm.getmyip()
-      
+      bind_ip = getmyip()
+
       # Attempt to have the nodemanager listen on an available port.
       # Once it is able to listen, create a new thread and pass it the socket.
       # That new thread will be responsible for handling all of the incoming connections.     
@@ -324,105 +367,20 @@ def start_accepter():
           # There are two possible implementations available here:
           # 1) Use a raw (python) socket, and so we can have a timeout, as per ticket #881
           # 2) Use a repy socket, but then possibly leak many connections.
-          
-          # Check to see if AFFIX is enabled.
-          try:
-            affix_enabled_lookup = advertise_lookup(enable_affix_key)[-1]
-            servicelogger.log("affix_enabled_lookup is " + str(affix_enabled_lookup))
-            # Now we check if the last entry is True or False.
-            if affix_enabled_lookup == 'True':
-              affix_stack_string = advertise_lookup(affix_service_key)[-1]
-              affix_enabled = True
-              servicelogger.log("[INFO]: Current advertised Affix string: " + str(affix_stack_string))
-            else:
-              affix_enabled = False
-          except (AdvertiseError, TimeoutError), e:
-            servicelogger.log("Trying to look up Affix enabled threw " + str(type(e)) + " " + str(e))
-            affix_enabled = False
-            # Raise error on debug mode.
-            if DEBUG_MODE:
-              raise
-          except ValueError:
-            servicelogger.log("Trying to look up Affix enabled threw " + str(type(e)) + " " + str(e))
-            affix_enabled = False
-            # Raise error on debug mode.
-            if DEBUG_MODE:
-              raise
-          except IndexError:
-            servicelogger.log("Trying to look up Affix enabled threw " + str(type(e)) + " " + str(e))
-            # This will occur if the advertise server returns an empty list.
-            affix_enabled = False
-            # Raise error on debug mode.
-            if DEBUG_MODE:
-              raise
       
-          # If AFFIX is enabled, then we use AFFIX to open up a tcpserversocket.
-          if affix_enabled:
-            # Here we are going to use a for loop to find a second available port
-            # for us to use for the LegacyAffix. Since the LegacyAffix opens up two
-            # tcpserversocket, it needs two available ports. The first for a normal
-            # repy listenforconnection call, the second for affix enabled 
-            # listenforconnection call.
-            
-            # We keep track of how many times we failed to listen with the Affix
-            # framework. If we exceed 3, we default to Repy V2 API. Note that we
-            # will try three times with each port, if we are unable to connect
-            # with legacy Repy V2 API as well.
-            fail_affix_count = 0
-            error_list = []
+          # For now, we'll use the second method and use the sockettimeout
+          # library so we can still use a timeout to ensure we don't have
+          # any malicious clients that feed us endless data (or no data)
+          # to tie up the connection. Note that if we are using Affix,
+          # we will be using a TimeoutAffix to achieve the equivalent
+          # outcome.
+          serversocket = timeout_listenforconnection(bind_ip, possibleport,10)
 
-            for affixportindex in range(portindex+1, len(configuration['ports'])):
-              affixport = configuration['ports'][affixportindex]
+          # assign the nodemanager name.
+          # We re-retrieve our address using getmyip as we may now be using
+          # a zenodotus name instead.
+          myname_port = str(getmyip()) + ":" + str(possibleport)
 
-              # Assign the nodemanager name to be the nodekey. We replace any whitespace in the
-              # name and append zenodotus tag at the end.
-              mypubkey = rsa_publickey_to_string(configuration['publickey']).replace(" ", "")
-              myname = sha_hexhash(mypubkey) + '.zenodotus.poly.edu'
-              myname_port = myname + ":" + str(possibleport)
-
-              # Announce my (new) Zenodotus name
-              zenodotus_advertise_handle = advertisepipe.add_to_pipe(myname, getmyip())
-
-              affix_legacy_string = "(CoordinationAffix)(LegacyAffix," + myname + "," + str(affixport) + ",0," 
-              affix_legacy_string += "(CoordinationAffix)" + affix_stack_string + ")"
-              affix_object = AffixStackInterface(affix_legacy_string)
-
-              # Now that we have found the Affix string and have created the AffixStackInterface
-              # object, we will try to open up a listening tcp socket. If we fail to do so
-              # 3 times, we will default to legacy Repy V2 socket.
-              try:
-                serversocket = affix_object.listenforconnection(myname, possibleport)
-                servicelogger.log("[INFO]Started accepter thread with Affix string: " + affix_legacy_string)
-                break
-              except (AddressBindingError, AlreadyListeningError, DuplicateTupleError), e:
-
-                servicelogger.log(
-                  "Failed to open listening socket with Affix on port: " + 
-                  str(affixport) + ". Found error: " + str(e))
-
-                fail_affix_count += 1
-                error_list.append((type(e), str(e)))
-
-                # If we fail more than 2 times, we will stop attempting to try listening
-                # on a socket with the Affix framework.
-                if fail_affix_count > 2:
-                  servicelogger.log("Failed to open socket using Affix after three attemps." +
-                                    "Now resuming with legacy Repy socket. Errors were: " + 
-                                    str(error_list))
-                  serversocket = timeout_listenforconnection(bind_ip, possibleport, 10)
-                  # assign the nodemanager name
-                  myname_port = str(bind_ip) + ":" + str(possibleport)
-                  break
-              except Exception, e:
-                servicelogger.log("[ERROR] Found Listenforconnection had exception: " + str(e))
-                raise
-
-          else:
-            # If AFFIX is not enabled, then we open up a normal tcpserversocket.
-            # For now, we'll use the second method.
-            serversocket = timeout_listenforconnection(bind_ip, possibleport,10)
-            # assign the nodemanager name
-            myname_port = str(bind_ip) + ":" + str(possibleport)
           # If there is no error, we were able to successfully start listening.
           # Create the thread, and start it up!
           accepter = nmconnectionmanager.AccepterThread(serversocket)
@@ -527,7 +485,7 @@ def main():
   # Check if we are running in testmode.
   if TEST_NM:
     nodemanager_pid = os.getpid()
-    servicelogger.log("[INFO]: Running nodemanager in test mode on port <nodemanager_port>, "+
+    servicelogger.log("[INFO]: Running nodemanager in test mode on port 1224, "+
                       "pid %s." % str(nodemanager_pid))
     nodeman_pid_file = open(os.path.join(os.getcwd(), 'nodemanager.pid'), 'w')
     
@@ -613,6 +571,11 @@ def main():
   
 
 
+  # Enable affix and overload various Repy API
+  # calls with Affix enabled calls.
+  enable_affix()
+
+
   # get the external IP address...
   myip = None
   while True:
@@ -660,9 +623,6 @@ def main():
   # I will count my iterations through the loop so that I can log a message
   # periodically.   This makes it clear I am alive.
   times_through_the_loop = 0
-
-  # Setup the initial time for checking Affix status.
-  last_check_affix_time = nonportable.getruntime()
 
 
   # BUG: Need to exit all when we're being upgraded
@@ -725,35 +685,6 @@ def main():
 
 
     
-    # Check to see if we need to restart the accepter thread due to affix
-    # string changing or it being turned on/off.
-    if (nonportable.getruntime() - last_check_affix_time) > check_affix_interval:
-      try:
-        servicelogger.log("[Info] Checking to see if Affix status has changed...")
-        affix_enabled_lookup = advertise_lookup(enable_affix_key)[-1]
-        if affix_enabled_lookup and str(affix_enabled_lookup) != str(affix_enabled):
-          servicelogger.log('[WARN]:At ' + str(time.time()) + ' affix_enabled set to: ' + affix_enabled_lookup)
-          servicelogger.log('Previous flag for affix_enabled was: ' + str(affix_enabled))
-          node_reset_config['reset_accepter'] = True
-          accepter_thread.close_serversocket()
-        
-        elif affix_enabled_lookup == 'True':
-          affix_stack_string_lookup = advertise_lookup(affix_service_key)[-1]
-          # If the affix string has changed, we reset our accepter listener.
-          if affix_stack_string_lookup != affix_stack_string:
-            servicelogger.log('[WARN]:At ' + str(time.time()) + ' affix string chaged to: ' + affix_stack_string_lookup)
-            node_reset_config['reset_accepter'] = True
-            accepter_thread.close_serversocket()
-      except (AdvertiseError, TimeoutError):
-        # The advertise lookup failed.   We will retry this later once it works
-        pass
-      except Exception, err:
-        servicelogger.log('[Exception]:At ' + str(time.time()) + ' Uncaught exception: ' + str(err))
-
-      # Update the last time Affix status was checked.
-      last_check_affix_time = nonportable.getruntime()
-
-
     # If the reset accepter flag has been turned on, we call start_accepter
     # and update our name. 
     if node_reset_config['reset_accepter']:
