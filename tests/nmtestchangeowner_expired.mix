@@ -20,22 +20,22 @@ if callfunc == 'initialize':
   #keeps track of whether advertise was changed
   advert_change = False
   
-  time_updatetime(34612)
+  time.time_updatetime(34612)
   
   #get the current time
   current_time = time_gettime()
-  nmhandle = nmclient_createhandle(getmyip(), 1224, timestamp =current_time, expirationtime= 2)
+  nmhandle = nmclient.nmclient_createhandle(getmyip(), 1224, timestamp =current_time, expirationtime= 2)
   
-  myhandleinfo = nmclient_get_handle_info(nmhandle)
+  myhandleinfo = nmclient.nmclient_get_handle_info(nmhandle)
 
   myhandleinfo['publickey'] = origpub
 
   myhandleinfo['privatekey'] = origpriv
 
-  nmclient_set_handle_info(nmhandle, myhandleinfo)
+  nmclient.nmclient_set_handle_info(nmhandle, myhandleinfo)
 
   # get the vessel to use...
-  myvessel = nmclient_listaccessiblevessels(nmhandle,origpub)[0][0]
+  myvessel = nmclient.nmclient_listaccessiblevessels(nmhandle,origpub)[0][0]
 
   # get new keys / credentials...
   keys = rsa_gen_pubpriv_keys(50)
@@ -46,26 +46,26 @@ if callfunc == 'initialize':
 
   # try to change the owner to the new credentials
   try:
-    nmclient_signedsay(nmhandle, "ChangeOwner", myvessel, rsa_publickey_to_string(keys[0]))
+    nmclient.nmclient_signedsay(nmhandle, "ChangeOwner", myvessel, rsa_publickey_to_string(keys[0]))
   except NMClientException:
     pass
   
   # update our information...
-  vesselinfo = nmclient_getvesseldict(nmhandle)
+  vesselinfo = nmclient.nmclient_getvesseldict(nmhandle)
   
   origstate = vesselinfo['vessels'][myvessel]['advertise']
   
   #check if new credentials are working
-  nmhandle = nmclient_createhandle(getmyip(), 1224)
-  myhandleinfo = nmclient_get_handle_info(nmhandle)
+  nmhandle = nmclient.nmclient_createhandle(getmyip(), 1224)
+  myhandleinfo = nmclient.nmclient_get_handle_info(nmhandle)
   myhandleinfo['publickey'] = keys[0]
   myhandleinfo['privatekey'] = keys[1]
-  nmclient_set_handle_info(nmhandle, myhandleinfo)
+  nmclient.nmclient_set_handle_info(nmhandle, myhandleinfo)
   try:
-    nmclient_signedsay(nmhandle, "ChangeAdvertise", myvessel, not origstate)
+    nmclient.nmclient_signedsay(nmhandle, "ChangeAdvertise", myvessel, not origstate)
     
     #check to see if we have changed the advertise
-    vesselinfo = nmclient_getvesseldict(nmhandle)
+    vesselinfo = nmclient.nmclient_getvesseldict(nmhandle)
     current = vesselinfo['vessels'][myvessel]['advertise']
     if current == origstate:
       test_pass=True
@@ -77,15 +77,15 @@ if callfunc == 'initialize':
   
   if advert_change:
     #change advertise back
-    nmclient_signedsay(nmhandle, "ChangeAdvertise", myvessel, origstate)
+    nmclient.nmclient_signedsay(nmhandle, "ChangeAdvertise", myvessel, origstate)
   
   if not test_pass:
     #change the owner back
     # use the credentials I just created...
-    nmhandle = nmclient_createhandle(getmyip(), 1224)
-    myhandleinfo = nmclient_get_handle_info(nmhandle)
+    nmhandle = nmclient.nmclient_createhandle(getmyip(), 1224)
+    myhandleinfo = nmclient.nmclient_get_handle_info(nmhandle)
     myhandleinfo['publickey'] = keys[0]
     myhandleinfo['privatekey'] = keys[1]
-    nmclient_set_handle_info(nmhandle, myhandleinfo)
-    nmclient_signedsay(nmhandle, "ChangeOwner", myvessel, rsa_publickey_to_string(origpub))
+    nmclient.nmclient_set_handle_info(nmhandle, myhandleinfo)
+    nmclient.nmclient_signedsay(nmhandle, "ChangeOwner", myvessel, rsa_publickey_to_string(origpub))
     raise Exception, "An expired request changed the owner!"

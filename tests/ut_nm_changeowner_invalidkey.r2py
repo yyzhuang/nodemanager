@@ -5,8 +5,33 @@ Author: Cosmin Barsan
 Description:
 This test verifies that the method ChangeOwner does not change the owner when an invalid private key is used.
 """
-dy_import_module_symbols("time.r2py")
-dy_import_module_symbols("nmclient.r2py")
+affixlib = dy_import_module("affixstackinterface.r2py")
+rsa = dy_import_module("rsa.r2py")
+sha = dy_import_module("sha.r2py")
+
+original_openconnection = openconnection
+
+nodeman_file = openfile("nodeman.cfg", False)
+nodeman_content = "mydict = " + nodeman_file.readat(10000, 0)
+nodeman_file.close()
+
+new_namespace = createvirtualnamespace(nodeman_content, "nodeman")
+nodeman_dict = new_namespace.evaluate({})
+mypubkey = rsa.rsa_publickey_to_string(nodeman_dict["mydict"]["publickey"]).replace(" ", "")
+
+my_zeno_name = sha.sha_hexhash(mypubkey) + ".zenodotus.poly.edu"
+myaffix = affixlib.AffixStackInterface("(CoordinationAffix)", my_zeno_name)
+
+
+def new_openconnection(destip, destport, localip, localport, timeout):
+  if destip.endswith("zenodotus.poly.edu"):
+    return myaffix.openconnection(destip, destport, localip, localport, timeout)
+  return original_openconnection(destip, destport, localip, localport, timeout)
+
+openconnection = new_openconnection
+
+time = dy_import_module("time.r2py")
+nmclirent = dy_import_module("nmclient.r2py")
 dy_import_module_symbols("rsa.r2py")
 
 if callfunc == 'initialize':
@@ -18,33 +43,33 @@ if callfunc == 'initialize':
   #this is an invalid private key, but it is similar to the correct private key
   origpriv_invalid = {'q': 54058558609373005761636236344701348569916976061233632302656354317296914836524068463339023907975088241991695932495814481647444694298985642399081803007236201209469946258941304883759055364999601996691930482382846773100579600645226048615117420700557109784424679718473031043919444221865548436936151591443700338637L, 'p': 163005946735584933080904947630005844643976533101833337498275325109161034533761907731163804211972028706576149578068245770343911608552263828770803393409524864116386113730846986186991705365903821748069417335817777744060812709585990055899981036005918570773920278122250955465866247822703170432353212868019982497201L, 'd': 2240169959722743128383109799584344927620631289695753164608137553948562513840905705755472646965204244185778446323692147882435315849145863268402636875283224769523136754021661455550898853194946272632624967823932300133454648259819576163836968537588009990175504497443778516954738281566994011669204200464480373455393955376955298830900816876217755539224711550233098080437180969137329334691279693903616444969433587901167778818088572448203744563568733073397445832643374417179790887207750843422586891294093361764515116975052446191135748633217162309228939861802346846701415099277659436864814394138247474263285983065177006045103L}
 
-  time_updatetime(34612)
-  nmhandle = nmclient_createhandle(getmyip(), <nodemanager_port>)
+  time.time_updatetime(34612)
+  nmhandle = nmclient.nmclient_createhandle(my_zeno_name, <nodemanager_port>)
   
-  myhandleinfo = nmclient_get_handle_info(nmhandle)
+  myhandleinfo = nmclient.nmclient_get_handle_info(nmhandle)
 
   myhandleinfo['publickey'] = origpub
 
   myhandleinfo['privatekey'] = origpriv
 
-  nmclient_set_handle_info(nmhandle, myhandleinfo)
+  nmclient.nmclient_set_handle_info(nmhandle, myhandleinfo)
 
   # get the vessel to use...
-  myvessel = nmclient_listaccessiblevessels(nmhandle,origpub)[0][0]
+  myvessel = nmclient.nmclient_listaccessiblevessels(nmhandle,origpub)[0][0]
 
   # get new keys / credentials...
   keys = rsa_gen_pubpriv_keys(50)
   
-  nmclient_signedsay(nmhandle, "ChangeAdvertise", myvessel, False)
+  nmclient.nmclient_signedsay(nmhandle, "ChangeAdvertise", myvessel, False)
   
   #set the handle to use incorrect private key
   myhandleinfo['privatekey'] = origpriv_invalid
-  nmclient_set_handle_info(nmhandle, myhandleinfo)
+  nmclient.nmclient_set_handle_info(nmhandle, myhandleinfo)
 
   # try to change the owner to the new credentials
   # we dont fail if an exception is not thrown here since we will check if the change owner call was sucessful afterwards.
   try:
-    nmclient_signedsay(nmhandle, "ChangeOwner", myvessel, rsa_publickey_to_string(keys[0]))
+    nmclient.nmclient_signedsay(nmhandle, "ChangeOwner", myvessel, rsa_publickey_to_string(keys[0]))
   except NMClientException:
     pass
 
@@ -53,22 +78,22 @@ if callfunc == 'initialize':
   try:
     #set the handle to use correct private key
     myhandleinfo['privatekey'] = origpriv
-    nmclient_set_handle_info(nmhandle, myhandleinfo)
+    nmclient.nmclient_set_handle_info(nmhandle, myhandleinfo)
     
-    nmclient_signedsay(nmhandle, "ChangeAdvertise", myvessel, True)
+    nmclient.nmclient_signedsay(nmhandle, "ChangeAdvertise", myvessel, True)
   except NMClientException:
     #credentials were changed with an invalid key, first change them back to original state
     
     # use the credentials I just created...
-    myhandleinfo = nmclient_get_handle_info(nmhandle)
+    myhandleinfo = nmclient.nmclient_get_handle_info(nmhandle)
     myhandleinfo['publickey'] = keys[0]
     myhandleinfo['privatekey'] = keys[1]
-    nmclient_set_handle_info(nmhandle, myhandleinfo)
+    nmclient.nmclient_set_handle_info(nmhandle, myhandleinfo)
     
     #change advertise back
-    nmclient_signedsay(nmhandle, "ChangeAdvertise", myvessel, True)
+    nmclient.nmclient_signedsay(nmhandle, "ChangeAdvertise", myvessel, True)
     
     # ... to change the owner back
-    nmclient_signedsay(nmhandle, "ChangeOwner", myvessel, rsa_publickey_to_string(origpub))
+    nmclient.nmclient_signedsay(nmhandle, "ChangeOwner", myvessel, rsa_publickey_to_string(origpub))
     
     raise Exception, "credentials were changed with an invalid key!"

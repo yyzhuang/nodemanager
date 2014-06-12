@@ -7,11 +7,36 @@ This test verifies the GetVessels method does not generate an exception.
 
 """
 
-dy_import_module_symbols("nmclient.r2py")
+affixlib = dy_import_module("affixstackinterface.r2py")
+rsa = dy_import_module("rsa.r2py")
+sha = dy_import_module("sha.r2py")
+
+original_openconnection = openconnection
+
+nodeman_file = openfile("nodeman.cfg", False)
+nodeman_content = "mydict = " + nodeman_file.readat(10000, 0)
+nodeman_file.close()
+
+new_namespace = createvirtualnamespace(nodeman_content, "nodeman")
+nodeman_dict = new_namespace.evaluate({})
+mypubkey = rsa.rsa_publickey_to_string(nodeman_dict["mydict"]["publickey"]).replace(" ", "")
+
+my_zeno_name = sha.sha_hexhash(mypubkey) + ".zenodotus.poly.edu"
+myaffix = affixlib.AffixStackInterface("(CoordinationAffix)", my_zeno_name)
+
+
+def new_openconnection(destip, destport, localip, localport, timeout):
+  if destip.endswith("zenodotus.poly.edu"):
+    return myaffix.openconnection(destip, destport, localip, localport, timeout)
+  return original_openconnection(destip, destport, localip, localport, timeout)
+
+openconnection = new_openconnection
+
+nmclirent = dy_import_module("nmclient.r2py")
 
 if callfunc == 'initialize':
-  nmhandle = nmclient_createhandle(getmyip(), <nodemanager_port>)
+  nmhandle = nmclient.nmclient_createhandle(my_zeno_name, <nodemanager_port>)
 
-  nmclient_rawsay(nmhandle, "GetVessels")
+  nmclient.nmclient_rawsay(nmhandle, "GetVessels")
 
-  nmclient_getvesseldict(nmhandle)
+  nmclient.nmclient_getvesseldict(nmhandle)
