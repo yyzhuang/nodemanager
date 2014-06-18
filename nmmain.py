@@ -271,7 +271,7 @@ def is_accepter_started():
 
 # Flags for whether to use Affix, and what Affix to use.
 affix_enabled = True
-affix_string = '(CoordinationAffix)(NatDeciderAffix)'
+affix_string = '(CoordinationAffix)(MakeMeHearAffix)'
 
 
 # Store the original Repy API calls.
