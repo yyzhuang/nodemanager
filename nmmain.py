@@ -122,7 +122,7 @@ def log(*args):
     servicelogger.log(logstring)
 
 
-affixlib = dy_import_module("affixstackinterface.r2py")
+affix_stack = dy_import_module("affix_stack.r2py")
 advertisepipe = dy_import_module("advertisepipe.r2py")
 
 
@@ -169,7 +169,7 @@ LOG_AFTER_THIS_MANY_ITERATIONS = 600  # every 10 minutes
 # BUG: what if the data on disk is corrupt?   How do I recover?   What is the
 # "right thing"?   I could run nminit again...   Is this the "right thing"?
 
-version = "0.2-beta-r7257"
+version = "0.2-alpha-20140714-1434"
 
 # Our settings
 configuration = {}
@@ -269,9 +269,8 @@ def is_accepter_started():
 
 
 
-# Flags for whether to use Affix, and what Affix to use.
+# Flags for whether to use Affix
 affix_enabled = True
-affix_string = '(CoordinationAffix)(MakeMeHearAffix)'
 
 
 # Store the original Repy API calls.
@@ -280,17 +279,17 @@ old_listenforconnection = listenforconnection
 old_timeout_listenforconnection = timeout_listenforconnection
 
 
-def enable_affix():
+def enable_affix(affix_string):
   """
   <Purpose>
     Overload the listenforconnection() and getmyip() API call 
-    if affix is enabled.
+    if Affix is enabled.
 
   <Arguments>
     None
 
   <SideEffects>
-    Original listenforconnection() and getmyip() gets overwrittedn.
+    Original listenforconnection() and getmyip() gets overwritten.
 
   <Exceptions>
     None
@@ -302,24 +301,15 @@ def enable_affix():
   global timeout_listenforconnection
   global getmyip
 
-  # Load the publickey and generate the zenodotus name for our node.
-  mypubkey = rsa_publickey_to_string(configuration['publickey']).replace(" ", "")
-  my_zeno_name = sha_hexhash(mypubkey) + '.zenodotus.poly.edu'
-
-  advertisepipe.add_to_pipe(my_zeno_name, old_getmyip())
-
-  servicelogger.log("Advertised zenodotus name: %s -> %s" % (my_zeno_name, old_getmyip()))
-
   # Create my affix object and overwrite the listenforconnection
   # and the getmyip call.
-  nodemanager_affix = affixlib.AffixStackInterface(affix_string, my_zeno_name)
+  nodemanager_affix = affix_stack.AffixStack(affix_string)
 
   # Create a new timeout_listenforconnection that wraps a normal
-  # Affix socket with timeout_socket. This will eventually be
-  # replaced with a TimeoutAffix.
+  # Affix socket with timeout_socket.
   def new_timeout_listenforconnection(localip, localport, timeout):
     sockobj = nodemanager_affix.listenforconnection(localip, localport)
-    return sockobj #timeout_socket(sockobj, timeout)
+    return timeout_socket(sockobj, timeout)
 
   # Overload the two functionalities with Affix functionalities
   # that will be used later on.
@@ -353,30 +343,37 @@ def start_accepter():
         pass
 
 
-      # Just use getmyip(), this is the default behavior and will work if we have preferences set
-      # We only want to call getmyip() once, rather than in the loop since this potentially avoids
-      # rebuilding the allowed IP cache for each possible port
+      # Use getmyip() to find the IP address the nodemanager should 
+      # listen on for incoming connections. This will work correctly 
+      # if IP/interface preferences have been set.
+      # We only want to call getmyip() once rather than in the loop 
+      # since this potentially avoids rebuilding the allowed IP 
+      # cache for each possible port
       bind_ip = getmyip()
 
       # Attempt to have the nodemanager listen on an available port.
       # Once it is able to listen, create a new thread and pass it the socket.
       # That new thread will be responsible for handling all of the incoming connections.     
-      for portindex in range(len(configuration['ports'])):
-        possibleport = configuration['ports'][portindex]
+      for possibleport in configuration['ports']:
         try:
-          # There are two possible implementations available here:
-          # 1) Use a raw (python) socket, and so we can have a timeout, as per ticket #881
-          # 2) Use a repy socket, but then possibly leak many connections.
-      
-          # For now, we'll use the second method and use the sockettimeout
-          # library so we can still use a timeout to ensure we don't have
-          # any malicious clients that feed us endless data (or no data)
-          # to tie up the connection. Note that if we are using Affix,
-          # we will be using a TimeoutAffix to achieve the equivalent
-          # outcome.
-          serversocket = timeout_listenforconnection(bind_ip, possibleport,10)
+          # Use a Repy socket for listening. This lets us override 
+          # the listenforconnection function with a version using an 
+          # Affix stack easily; furthermore, we can transparently use 
+          # the Repy sockettimeout library to protect against malicious 
+          # clients that feed us endless data (or no data) to tie up 
+          # the connection.
+          try:
+            log(bind_ip, possibleport)
+            serversocket = timeout_listenforconnection(bind_ip, possibleport, 10)
+          except (AlreadyListeningError, DuplicateTupleError), e:
+            # These are rather dull errors that will result in us 
+            # trying a different port. Don't print a stack trace.
+            servicelogger.log("[ERROR]: listenforconnection for address " + 
+                bind_ip + ":" + str(possibleport) + " failed with error '" + 
+                repr(e) + "'. Retrying.")
+            continue
 
-          # assign the nodemanager name.
+          # Assign the nodemanager name.
           # We re-retrieve our address using getmyip as we may now be using
           # a zenodotus name instead.
           myname_port = str(getmyip()) + ":" + str(possibleport)
@@ -394,13 +391,18 @@ def start_accepter():
           node_reset_config['reset_accepter'] = False
         except Exception, e:
           # print bind_ip, port, e
-          servicelogger.log("[ERROR]: when calling listenforconnection for the connection_handler: " + str(e))
+          servicelogger.log("[ERROR] setting up nodemanager serversocket " + 
+              "on address " + bind_ip + ":" + str(possibleport) + ": " + 
+              repr(e))
           servicelogger.log_last_exception()
         else:
           break
 
       else:
-        servicelogger.log("[ERROR]: cannot find a port for recvmess")
+        # We exhausted the list of possibleport's to no avail. 
+        # Pause to avoid busy-waiting for the problem to go away.
+        servicelogger.log("[ERROR]: Could not created serversocket. Sleeping for 30 seconds.")
+        time.sleep(30)
 
     # check infrequently
     time.sleep(configuration['pollfrequency'])
@@ -442,7 +444,7 @@ def is_advert_thread_started():
 
 def start_advert_thread(vesseldict, myname, nodekey):
 
-  if should_start_waitable_thread('advert','Advertisement Thread'):
+  if should_start_waitable_thread('advert', 'Advertisement Thread'):
     # start the AdvertThread and set it to a daemon.   I think the daemon 
     # setting is unnecessary since I'll clobber on restart...
     advertthread = nmadvertise.advertthread(vesseldict, nodekey)
@@ -461,7 +463,7 @@ def is_status_thread_started():
     return False
 
 
-def start_status_thread(vesseldict,sleeptime):
+def start_status_thread(vesseldict, sleeptime):
 
   if should_start_waitable_thread('status','Status Monitoring Thread'):
     # start the StatusThread and set it to a daemon.   I think the daemon 
@@ -571,9 +573,14 @@ def main():
   
 
 
-  # Enable affix and overload various Repy API
-  # calls with Affix enabled calls.
-  enable_affix()
+  # Enable Affix and overload various Repy network API calls 
+  # with Affix-enabled calls.
+  # Use the node's publickey to generate a name for our node.
+  mypubkey = rsa_publickey_to_string(configuration['publickey']).replace(" ", "")
+  affix_stack_name = sha_hexhash(mypubkey)
+
+  enable_affix('(CoordinationAffix)(MakeMeHearAffix)(NamingAndResolverAffix,' + 
+      affix_stack_name + ')')
 
 
   # get the external IP address...
@@ -613,7 +620,7 @@ def main():
   start_advert_thread(vesseldict, myname, configuration['publickey'])
 
   # Start status thread...
-  start_status_thread(vesseldict,configuration['pollfrequency'])
+  start_status_thread(vesseldict, configuration['pollfrequency'])
 
 
   # we should be all set up now.   
@@ -652,36 +659,38 @@ def main():
 
 
 
-    # Check for ip change.
-    current_ip = None
-    while True:
-      try:
-        current_ip = emulcomm.getmyip()
-      except Exception, e:
-        # If we aren't connected to the internet, emulcomm.getmyip() raises this:
-        if len(e.args) >= 1 and e.args[0] == "Cannot detect a connection to the Internet.":
-          # So we try again.
-          pass
+    # Check for IP address changes.
+    # When using Affix, the NamingAndResolverAffix takes over this.
+    if not affix_enabled:
+      current_ip = None
+      while True:
+        try:
+          current_ip = emulcomm.getmyip()
+        except Exception, e:
+          # If we aren't connected to the internet, emulcomm.getmyip() raises this:
+          if len(e.args) >= 1 and e.args[0] == "Cannot detect a connection to the Internet.":
+            # So we try again.
+            pass
+          else:
+            # It wasn't emulcomm.getmyip()'s exception. re-raise.
+            raise
         else:
-          # It wasn't emulcomm.getmyip()'s exception. re-raise.
-          raise
-      else:
-        # We succeeded in getting our external IP. Leave the loop.
-        break
-    time.sleep(0.1)
+          # We succeeded in getting our external IP. Leave the loop.
+          break
+      time.sleep(0.1)
 
-    # If ip has changed, then restart the advertisement and accepter threads.
-    if current_ip != myip:
-      servicelogger.log('[WARN]:Node IP has changed, it is ' + 
-        str(current_ip) + ' now (was ' + str(myip) + ').')
-      myip = current_ip
+      # If ip has changed, then restart the advertisement and accepter threads.
+      if current_ip != myip:
+        servicelogger.log('[WARN]:Node IP has changed, it is ' + 
+          str(current_ip) + ' now (was ' + str(myip) + ').')
+        myip = current_ip
 
-      # Restart the accepter thread and update nodename in node_reset_config
-      node_reset_config['reset_accepter'] = True
+        # Restart the accepter thread and update nodename in node_reset_config
+        node_reset_config['reset_accepter'] = True
 
-      # Restart the advertisement thread
-      node_reset_config['reset_advert'] = True
-      start_advert_thread(vesseldict, myname, configuration['publickey'])
+        # Restart the advertisement thread
+        node_reset_config['reset_advert'] = True
+        start_advert_thread(vesseldict, myname, configuration['publickey'])
 
 
     
