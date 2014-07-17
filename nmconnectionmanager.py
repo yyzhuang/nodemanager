@@ -109,25 +109,31 @@ def _get_total_connection_count():
 class AccepterThread(threading.Thread):
   serversocket = None
   
-  def __init__(self,serversocket):
+  def __init__(self, serversocket):
+    log("AccepterThread inits")
     threading.Thread.__init__(self, name="AccepterThread")
     self.serversocket = serversocket
+    log("AccepterThread inited.")
   
   def run(self):
     # Run indefinitely.
     # This is on the assumption that getconnection() blocks, and so this won't consume an inordinate amount of resources.
     while True:
       try:
-        IP, port, client_socket = self.serversocket.getconnection()
-        connection_handler(IP, port, client_socket)
+        servicelogger.log("serversocket is", repr(self.serversocket), "\n")
+        ip, port, client_socket = self.serversocket.getconnection()
+        connection_handler(ip, port, client_socket)
       except SocketWouldBlockError:
         sleep(0.5)
       except SocketTimeoutError:
         sleep(0.5)
-      except:
+      """
+      except Exception, e:
         # MMM: For some reason, the SocketTimeoutError was not catching
         # the exception even though the type of error raised is SocketTimeoutError.
+        log("Encountered", repr(e), ":-/")
         sleep(0.5)
+"""
 
   def close_serversocket(self):
     # Close down the serversocket.
