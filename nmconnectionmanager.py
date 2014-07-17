@@ -120,20 +120,16 @@ class AccepterThread(threading.Thread):
     # This is on the assumption that getconnection() blocks, and so this won't consume an inordinate amount of resources.
     while True:
       try:
-        servicelogger.log("serversocket is", repr(self.serversocket), "\n")
         ip, port, client_socket = self.serversocket.getconnection()
         connection_handler(ip, port, client_socket)
       except SocketWouldBlockError:
         sleep(0.5)
       except SocketTimeoutError:
         sleep(0.5)
-      """
       except Exception, e:
-        # MMM: For some reason, the SocketTimeoutError was not catching
-        # the exception even though the type of error raised is SocketTimeoutError.
-        log("Encountered", repr(e), ":-/")
-        sleep(0.5)
-"""
+        servicelogger.log("FATAL error in AccepterThread: " + 
+            traceback.format_exc())
+        return
 
   def close_serversocket(self):
     # Close down the serversocket.
