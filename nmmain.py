@@ -306,10 +306,10 @@ def enable_affix(affix_string):
   nodemanager_affix = affix_stack.AffixStack(affix_string)
 
   # Create a new timeout_listenforconnection that wraps a normal
-  # Affix socket with timeout_socket.
+  # Affix socket with timeout_server_socket.
   def new_timeout_listenforconnection(localip, localport, timeout):
     sockobj = nodemanager_affix.listenforconnection(localip, localport)
-    return timeout_socket(sockobj, timeout)
+    return timeout_server_socket(sockobj, timeout)
 
   # Overload the two functionalities with Affix functionalities
   # that will be used later on.
@@ -363,7 +363,7 @@ def start_accepter():
           # clients that feed us endless data (or no data) to tie up 
           # the connection.
           try:
-            log(bind_ip, possibleport)
+            log("using timeout_listenforconnection", repr(timeout_listenforconnection))
             serversocket = timeout_listenforconnection(bind_ip, possibleport, 10)
           except (AlreadyListeningError, DuplicateTupleError), e:
             # These are rather dull errors that will result in us 
@@ -401,7 +401,7 @@ def start_accepter():
       else:
         # We exhausted the list of possibleport's to no avail. 
         # Pause to avoid busy-waiting for the problem to go away.
-        servicelogger.log("[ERROR]: Could not created serversocket. Sleeping for 30 seconds.")
+        servicelogger.log("[ERROR]: Could not create serversocket. Sleeping for 30 seconds.")
         time.sleep(30)
 
     # check infrequently
@@ -579,9 +579,12 @@ def main():
   mypubkey = rsa_publickey_to_string(configuration['publickey']).replace(" ", "")
   affix_stack_name = sha_hexhash(mypubkey)
 
+  log("timeout_listenforconnection is", timeout_listenforconnection, "\n")
+
   enable_affix('(CoordinationAffix)(MakeMeHearAffix)(NamingAndResolverAffix,' + 
       affix_stack_name + ')')
 
+  log("timeout_listenforconnection is", timeout_listenforconnection, "\n")
 
   # get the external IP address...
   myip = None
@@ -611,7 +614,7 @@ def main():
   node_reset_config['name'] = myname
   
   #send our advertised name to the log
-  servicelogger.log('myname = '+str(myname))
+  servicelogger.log('myname = ' + str(myname))
 
   # Start worker thread...
   start_worker_thread(configuration['pollfrequency'])
