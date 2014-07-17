@@ -363,7 +363,6 @@ def start_accepter():
           # clients that feed us endless data (or no data) to tie up 
           # the connection.
           try:
-            log("using timeout_listenforconnection", repr(timeout_listenforconnection))
             serversocket = timeout_listenforconnection(bind_ip, possibleport, 10)
           except (AlreadyListeningError, DuplicateTupleError), e:
             # These are rather dull errors that will result in us 
@@ -579,12 +578,8 @@ def main():
   mypubkey = rsa_publickey_to_string(configuration['publickey']).replace(" ", "")
   affix_stack_name = sha_hexhash(mypubkey)
 
-  log("timeout_listenforconnection is", timeout_listenforconnection, "\n")
-
   enable_affix('(CoordinationAffix)(MakeMeHearAffix)(NamingAndResolverAffix,' + 
       affix_stack_name + ')')
-
-  log("timeout_listenforconnection is", timeout_listenforconnection, "\n")
 
   # get the external IP address...
   myip = None
@@ -643,17 +638,21 @@ def main():
     # and this code was never executed, so i removed it completely
 
     myname = node_reset_config['name']
-        
+
+    if not is_accepter_started():
+      servicelogger.log("[WARN]:AccepterThread requires restart.")
+      node_reset_config['reset_accepter'] = True
+ 
     if not is_worker_thread_started():
-      servicelogger.log("[WARN]:At " + str(time.time()) + " restarting worker...")
+      servicelogger.log("[WARN]:WorkerThread requires restart.")
       start_worker_thread(configuration['pollfrequency'])
 
-    if should_start_waitable_thread('advert','Advertisement Thread'):
-      servicelogger.log("[WARN]:At " + str(time.time()) + " restarting advert...")
+    if should_start_waitable_thread('advert', 'Advertisement Thread'):
+      servicelogger.log("[WARN]:AdvertThread requires restart.")
       start_advert_thread(vesseldict, myname, configuration['publickey'])
 
-    if should_start_waitable_thread('status','Status Monitoring Thread'):
-      servicelogger.log("[WARN]:At " + str(time.time()) + " restarting status...")
+    if should_start_waitable_thread('status', 'Status Monitoring Thread'):
+      servicelogger.log("[WARN]:StatusMonitoringThread requires restart.")
       start_status_thread(vesseldict,configuration['pollfrequency'])
 
     if not TEST_NM and not runonce.stillhaveprocesslock("seattlenodemanager"):
