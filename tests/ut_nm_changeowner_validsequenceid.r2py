@@ -7,11 +7,10 @@ The test sends a change user request with sequence id 0 followed by a change adv
 
 """
 
-affixlib = dy_import_module("affixstackinterface.r2py")
+affix_stack = dy_import_module("affix_stack.r2py")
 rsa = dy_import_module("rsa.r2py")
 sha = dy_import_module("sha.r2py")
 
-original_openconnection = openconnection
 
 nodeman_file = openfile("nodeman.cfg", False)
 nodeman_content = "mydict = " + nodeman_file.readat(10000, 0)
@@ -21,19 +20,15 @@ new_namespace = createvirtualnamespace(nodeman_content, "nodeman")
 nodeman_dict = new_namespace.evaluate({})
 mypubkey = rsa.rsa_publickey_to_string(nodeman_dict["mydict"]["publickey"]).replace(" ", "")
 
-my_zeno_name = sha.sha_hexhash(mypubkey) + ".zenodotus.poly.edu"
-myaffix = affixlib.AffixStackInterface("(CoordinationAffix)", my_zeno_name)
+my_name = sha.sha_hexhash(mypubkey)
+myaffix = affix_stack.AffixStack("(CoordinationAffix)(NamingAndResolverAffix)")
 
 
-def new_openconnection(destip, destport, localip, localport, timeout):
-  if destip.endswith("zenodotus.poly.edu"):
-    return myaffix.openconnection(destip, destport, localip, localport, timeout)
-  return original_openconnection(destip, destport, localip, localport, timeout)
 
-openconnection = new_openconnection
+openconnection = myaffix.openconnection
 
 time = dy_import_module("time.r2py")
-nmclirent = dy_import_module("nmclient.r2py")
+nmclient = dy_import_module("nmclient.r2py")
 
 if callfunc == 'initialize':
 
@@ -44,7 +39,7 @@ if callfunc == 'initialize':
 
   time.time_updatetime(34612)
   
-  nmhandle = nmclient.nmclient_createhandle(my_zeno_name, <nodemanager_port>)  
+  nmhandle = nmclient.nmclient_createhandle(my_name, <nodemanager_port>)  
   myhandleinfo = nmclient.nmclient_get_handle_info(nmhandle)
   myhandleinfo['publickey'] = origpub
   myhandleinfo['privatekey'] = origpriv
@@ -59,7 +54,7 @@ if callfunc == 'initialize':
   nmclient.nmclient_signedsay(nmhandle, "ChangeAdvertise", myvessel, False)
   
   #set up a new handle with sequence id 0
-  nmhandle = nmclient.nmclient_createhandle(my_zeno_name, <nodemanager_port>, sequenceid=('req',0))  
+  nmhandle = nmclient.nmclient_createhandle(my_name, <nodemanager_port>, sequenceid=('req',0))  
   myhandleinfo = nmclient.nmclient_get_handle_info(nmhandle)
   myhandleinfo['publickey'] = origpub
   myhandleinfo['privatekey'] = origpriv
@@ -73,7 +68,7 @@ if callfunc == 'initialize':
     raise Exception, "Change owner request with sequence id 0 failed"
 
   # use the credentials I just created...
-  nmhandle = nmclient.nmclient_createhandle(my_zeno_name, <nodemanager_port>, sequenceid=('req',1))
+  nmhandle = nmclient.nmclient_createhandle(my_name, <nodemanager_port>, sequenceid=('req',1))
   myhandleinfo = nmclient.nmclient_get_handle_info(nmhandle)
   myhandleinfo['publickey'] = keys[0]
   myhandleinfo['privatekey'] = keys[1]
@@ -85,7 +80,7 @@ if callfunc == 'initialize':
     nmclient.nmclient_signedsay(nmhandle, "ChangeOwner", myvessel, rsa_publickey_to_string(origpub))
   except NMClientException:
     #try to change owner back using a request with no sequence id
-    nmhandle = nmclient.nmclient_createhandle(my_zeno_name, <nodemanager_port>) 
+    nmhandle = nmclient.nmclient_createhandle(my_name, <nodemanager_port>) 
     myhandleinfo = nmclient.nmclient_get_handle_info(nmhandle)
     myhandleinfo['publickey'] = keys[0]
     myhandleinfo['privatekey'] = keys[1]

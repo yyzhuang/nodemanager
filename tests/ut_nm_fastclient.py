@@ -9,11 +9,10 @@ from repyportability import *
 
 add_dy_support(locals())
 
-affixlib = dy_import_module("affixstackinterface.r2py")
+affix_stack = dy_import_module("affix_stack.r2py")
 rsa = dy_import_module("rsa.r2py")
 sha = dy_import_module("sha.r2py")
 
-original_openconnection = openconnection
 
 nodeman_file = openfile("nodeman.cfg", False)
 nodeman_content = "mydict = " + nodeman_file.readat(10000, 0)
@@ -23,16 +22,12 @@ new_namespace = createvirtualnamespace(nodeman_content, "nodeman")
 nodeman_dict = new_namespace.evaluate({})
 mypubkey = rsa.rsa_publickey_to_string(nodeman_dict["mydict"]["publickey"]).replace(" ", "")
 
-my_zeno_name = sha.sha_hexhash(mypubkey) + ".zenodotus.poly.edu"
-myaffix = affixlib.AffixStackInterface("(CoordinationAffix)", my_zeno_name)
+my_name = sha.sha_hexhash(mypubkey)
+myaffix = affix_stack.AffixStack("(CoordinationAffix)(NamingAndResolverAffix)")
 
 
-def new_openconnection(destip, destport, localip, localport, timeout):
-  if destip.endswith("zenodotus.poly.edu"):
-    return myaffix.openconnection(destip, destport, localip, localport, timeout)
-  return original_openconnection(destip, destport, localip, localport, timeout)
 
-openconnection = new_openconnection
+openconnection = myaffix.openconnection
 
 time = dy_import_module("time.r2py")
 
