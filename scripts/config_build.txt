@@ -1,0 +1,10 @@
+DEPENDENCIES/seattlelib_v2/*
+DEPENDENCIES/repy_v2/*
+DEPENDENCIES/portability/*
+DEPENDENCIES/affix/*
+DEPENDENCIES/affix/components/*
+./*
+DEPENDENCIES/common/*
+DEPENDENCIES/common/utf/*
+# Tests
+test tests/*
