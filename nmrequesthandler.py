@@ -23,13 +23,13 @@ add_dy_support(_context)
 import fastsigneddata 
 
 # get requests (encapsulated in session messages)
-dy_import_module_symbols("session.r2py")
+session = dy_import_module("session.r2py")
 
 # for using time_updatetime
-dy_import_module_symbols("time.r2py")
+time = dy_import_module("time.r2py")
 
 # For using rsa key conversion
-dy_import_module_symbols("rsa.r2py")
+rsa = dy_import_module("rsa.r2py")
 
 # the API for the node manager
 import nmAPI
@@ -52,7 +52,7 @@ def initialize(myip, publickey, version):
   # public key which should be unique)
   #BUG FIX: we are storing rsa_publickey_to_string(publickey) instead of str(publickey) so that the entry is in the same format as 
   #the way the data is stored and used by the client
-  fastsigneddata.signeddata_set_identity(rsa_publickey_to_string(publickey))
+  fastsigneddata.signeddata_set_identity(rsa.rsa_publickey_to_string(publickey))
 
   # init the node manager's API (mostly for information it returns when a call
   # gets generic node information)
@@ -74,7 +74,7 @@ def handle_request(socketobj):
     try:
       # let's get the request...
       # BUG: Should prevent endless data / slow retrival attacks
-      fullrequest = session_recvmessage(socketobj)
+      fullrequest = session.session_recvmessage(socketobj)
   
     # Armon: Catch a vanilla exception because repy emulated_sockets
     # will raise Exception when the socket has been closed.
@@ -103,18 +103,18 @@ def handle_request(socketobj):
 
     # Bad parameters, signatures, etc.
     except nmAPI.BadRequest,e:
-      session_sendmessage(socketobj, str(e)+"\nError")
+      session.session_sendmessage(socketobj, str(e)+"\nError")
       return
 
     # Other exceptions only should happen on an internal error and should be
     # captured by servicelogger.log
     except Exception,e:
       servicelogger.log_last_exception()
-      session_sendmessage(socketobj,"Internal Error\nError")
+      session.session_sendmessage(socketobj,"Internal Error\nError")
       return
  
     # send the output of the command...
-    session_sendmessage(socketobj,retstring)
+    session.session_sendmessage(socketobj,retstring)
 
   except Exception, e:
     #JAC: Fix for the exception logging observed in #992
@@ -251,9 +251,9 @@ def ensure_is_correctly_signed(fullrequest, allowedkeys, oldmetadata):
 
   # check if time_updatetime has been called, if not, call it
   try:
-    time_gettime()
-  except TimeError:
-    time_updatetime(34612)
+    time.time_gettime()
+  except time.TimeError:
+    time.time_updatetime(34612)
     
 
   # check if request is still valid and has not expired
@@ -289,7 +289,7 @@ def ensure_is_correctly_signed(fullrequest, allowedkeys, oldmetadata):
   if not(oldmetadata==None):
     oldrawpublickey, oldrawtimestamp, oldrawexpiration, oldrawsequenceno, oldrawdestination, oldjunksignature = oldmetadata.rsplit('!',5)
     try:
-      conversion_try = rsa_string_to_publickey(oldrawpublickey[1:])
+      conversion_try = rsa.rsa_string_to_publickey(oldrawpublickey[1:])
     except ValueError:
       #we catch any exception here that occurs when trying to convert, and assume it is because we are dealing with a full request
       #catching the general exception is ok here since we will do this same conversion in shouldtrust

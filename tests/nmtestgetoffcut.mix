@@ -7,8 +7,8 @@ This test calls GetOffcutResources to verify no exceptions are thrown
 dy_import_module_symbols('nmclient.r2py')
 
 if callfunc == 'initialize':
-  nmhandle = nmclient_createhandle(getmyip(), 1224)
+  nmhandle = nmclient.nmclient_createhandle(getmyip(), 1224)
 
   # what do I do to check?
-  nmclient_rawsay(nmhandle, "GetOffcutResources")
+  nmclient.nmclient_rawsay(nmhandle, "GetOffcutResources")
 

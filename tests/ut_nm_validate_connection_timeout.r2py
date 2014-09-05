@@ -1,5 +1,24 @@
 #pragma repy restrictions.loose dylink.r2py
 
+affix_stack = dy_import_module("affix_stack.r2py")
+rsa = dy_import_module("rsa.r2py")
+sha = dy_import_module("sha.r2py")
+
+
+nodeman_file = openfile("nodeman.cfg", False)
+nodeman_content = "mydict = " + nodeman_file.readat(10000, 0)
+nodeman_file.close()
+
+new_namespace = createvirtualnamespace(nodeman_content, "nodeman")
+nodeman_dict = new_namespace.evaluate({})
+mypubkey = rsa.rsa_publickey_to_string(nodeman_dict["mydict"]["publickey"]).replace(" ", "")
+
+my_name = sha.sha_hexhash(mypubkey)
+myaffix = affix_stack.AffixStack("(CoordinationAffix)(NamingAndResolverAffix)")
+
+
+
+openconnection = myaffix.openconnection
 
 def error_and_exit(sleep_time):
 
@@ -13,7 +32,7 @@ def error_and_exit(sleep_time):
 
 if callfunc == 'initialize':
 
-  ip = getmyip()
+  ip = my_name
   timeout = 10
 
   # nm will only wait 10 seconds for a connection to have activity...
