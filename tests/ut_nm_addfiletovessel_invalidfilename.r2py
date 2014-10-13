@@ -19,7 +19,7 @@ new_namespace = createvirtualnamespace(nodeman_content, "nodeman")
 nodeman_dict = new_namespace.evaluate({})
 mypubkey = rsa.rsa_publickey_to_string(nodeman_dict["mydict"]["publickey"]).replace(" ", "")
 
-my_zeno_name = sha.sha_hexhash(mypubkey)
+my_name = sha.sha_hexhash(mypubkey)
 myaffix = affix_stack.AffixStack("(CoordinationAffix)(NamingAndResolverAffix)")
 
 openconnection = myaffix.openconnection
