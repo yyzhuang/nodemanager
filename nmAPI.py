@@ -483,7 +483,7 @@ def addfiletovessel(vesselname,filename, filedata):
   
   try:
     check_repy_filename(filename)
-  except TypeError, e:
+  except RepyArgumentError, e:
     raise BadRequest(str(e))
     
   if filename=="":
@@ -527,7 +527,7 @@ def retrievefilefromvessel(vesselname,filename):
 
   try:
     check_repy_filename(filename)
-  except TypeError, e:
+  except RepyArgumentError, e:
     raise BadRequest(str(e))
 
   try:
@@ -557,7 +557,7 @@ def deletefileinvessel(vesselname,filename):
 
   try:
     check_repy_filename(filename)
-  except TypeError, e:
+  except RepyArgumentError, e:
     raise BadRequest(str(e))
 
   if not os.path.exists(vesselname+"/"+filename):
