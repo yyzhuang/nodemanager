@@ -51,7 +51,7 @@ if callfunc == 'initialize':
   
   try:
     nmclient.nmclient_signedsay(nmhandle, "", myvessel, "more_parameter_data",paramdata)
-  except NMClientException:
+  except nmclient.NMClientException:
     pass
   else:
     raise Exception, "no exception detected when attempting to call nonexistent method with signedsay"

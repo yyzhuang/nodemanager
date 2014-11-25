@@ -37,7 +37,7 @@ if callfunc == 'initialize':
 
   try:
     nmclient.nmclient_rawsay(nmhandle, "ThisMethodDoesNotExist", myvessel)
-  except NMClientException:
+  except nmclient.NMClientException:
     pass
   else:
     raise Exception, "no exception detected when attempting to call nonexistent method with rawsay"

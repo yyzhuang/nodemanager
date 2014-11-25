@@ -51,13 +51,13 @@ if callfunc == 'initialize':
   # remove these if they exist...
   try:
     nmclient.nmclient_signedsay(nmhandle, "DeleteFileInVessel", myvessel, "hello")
-  except NMClientException:
+  except nmclient.NMClientException:
     # may not exist
     pass 
 
   try:
     nmclient.nmclient_signedsay(nmhandle, "DeleteFileInVessel", myvessel, "hello2")
-  except NMClientException:
+  except nmclient.NMClientException:
     # may not exist
     pass
 

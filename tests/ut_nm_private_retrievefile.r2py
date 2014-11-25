@@ -71,7 +71,7 @@ if callfunc == 'initialize':
 
   try:
     nmclient.nmclient_signedsay(nmhandle, "RetrieveFileFromVessel", myvessel, "private_foo")
-  except NMClientException:
+  except nmclient.NMClientException:
     pass
   else:
     log("Able to retrieve file starting with 'private_'  from vessel")

@@ -71,7 +71,7 @@ if callfunc == 'initialize':
 
   try:
     filelist = nmclient.nmclient_signedsay(nmhandle, "DeleteFileInVessel", myvessel, "private_foo")
-  except NMClientException:
+  except nmclient.NMClientException:
     pass
   else:
     log("Able to delete file starting with 'private_' from vessel")

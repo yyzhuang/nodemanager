@@ -49,7 +49,7 @@ if callfunc == 'initialize':
   myvessel = nmclient.nmclient_listaccessiblevessels(nmhandle,origpub)[0][0]
 
   # get new keys / credentials...
-  keys = rsa_gen_pubpriv_keys(50)
+  keys = rsa.rsa_gen_pubpriv_keys(50)
 
   nmclient.nmclient_signedsay(nmhandle, "ChangeAdvertise", myvessel, False)
   
@@ -63,8 +63,8 @@ if callfunc == 'initialize':
   
   # change the owner to the new credentials
   try:
-    nmclient.nmclient_signedsay(nmhandle, "ChangeOwner", myvessel, rsa_publickey_to_string(keys[0]))
-  except NMClientException:
+    nmclient.nmclient_signedsay(nmhandle, "ChangeOwner", myvessel, rsa.rsa_publickey_to_string(keys[0]))
+  except nmclient.NMClientException:
     raise Exception, "Change owner request with sequence id 0 failed"
 
   # use the credentials I just created...
@@ -77,8 +77,8 @@ if callfunc == 'initialize':
 
   # ... to change the owner back
   try:
-    nmclient.nmclient_signedsay(nmhandle, "ChangeOwner", myvessel, rsa_publickey_to_string(origpub))
-  except NMClientException:
+    nmclient.nmclient_signedsay(nmhandle, "ChangeOwner", myvessel, rsa.rsa_publickey_to_string(origpub))
+  except nmclient.NMClientException:
     #try to change owner back using a request with no sequence id
     nmhandle = nmclient.nmclient_createhandle(my_name, <nodemanager_port>) 
     myhandleinfo = nmclient.nmclient_get_handle_info(nmhandle)
@@ -86,6 +86,6 @@ if callfunc == 'initialize':
     myhandleinfo['privatekey'] = keys[1]
     nmclient.nmclient_set_handle_info(nmhandle, myhandleinfo)
     
-    nmclient.nmclient_signedsay(nmhandle, "ChangeOwner", myvessel, rsa_publickey_to_string(origpub))
+    nmclient.nmclient_signedsay(nmhandle, "ChangeOwner", myvessel, rsa.rsa_publickey_to_string(origpub))
     
     raise Exception, "Change owner request with sequence id 1 failed"

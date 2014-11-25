@@ -51,7 +51,7 @@ if callfunc == 'initialize':
   # okay, now let's reset!
   try:
     nmclient.nmclient_signedsay(nmhandle, "ResetVessel", myvessel)
-  except NMClientException, e:
+  except nmclient.NMClientException, e:
     log("warning: vessel reset failed", e, "\n")
 
 

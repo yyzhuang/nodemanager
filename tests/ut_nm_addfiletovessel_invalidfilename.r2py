@@ -50,7 +50,7 @@ if callfunc == 'initialize':
   
   try:
     nmclient.nmclient_signedsay(nmhandle, "AddFileToVessel", myvessel, "/",data)
-  except NMClientException:
+  except nmclient.NMClientException:
     pass
   else:
     #the file was added to the vessel
@@ -60,7 +60,7 @@ Attempting to retrieve file.""")
     #retrieve it
     try:
       retrieveddata = nmclient.nmclient_signedsay(nmhandle, "RetrieveFileFromVessel", myvessel, "/")
-    except NMClientException, e:
+    except nmclient.NMClientException, e:
       log("Possibly unable to read file from vessel:", e, "\n")
     else:
       if data != retrieveddata:

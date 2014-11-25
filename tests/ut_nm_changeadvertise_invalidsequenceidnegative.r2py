@@ -54,7 +54,7 @@ if callfunc == 'initialize':
   # Change the state...
   try:
     nmclient.nmclient_signedsay(nmhandle, "ChangeAdvertise", myvessel, not origstate)
-  except NMClientException:
+  except nmclient.NMClientException:
     pass
   
   # update our information...

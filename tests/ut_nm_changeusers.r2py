@@ -66,7 +66,7 @@ if callfunc == 'initialize':
   try:
     # Should fail, not the owner...
     nmclient.nmclient_signedsay(nmhandle, "ChangeAdvertise", myvessel, True)
-  except NMClientException:
+  except nmclient.NMClientException:
     pass
   else:
     raise Exception, "Should not be able to change the advertisement flag as an user"

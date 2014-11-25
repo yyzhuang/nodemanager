@@ -65,7 +65,7 @@ if callfunc == 'initialize':
   # we dont fail if an exception is not thrown here since we will check if the change owner call was sucessful afterwards.
   try:
     nmclient.nmclient_signedsay(nmhandle, "ChangeOwner", myvessel, rsa_publickey_to_string(keys[0]))
-  except NMClientException:
+  except nmclient.NMClientException:
     pass
 
 
@@ -76,7 +76,7 @@ if callfunc == 'initialize':
     nmclient.nmclient_set_handle_info(nmhandle, myhandleinfo)
     
     nmclient.nmclient_signedsay(nmhandle, "ChangeAdvertise", myvessel, True)
-  except NMClientException:
+  except nmclient.NMClientException:
     #credentials were changed with an invalid key, first change them back to original state
     
     # use the credentials I just created...

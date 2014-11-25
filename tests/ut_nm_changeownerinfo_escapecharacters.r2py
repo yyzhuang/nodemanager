@@ -53,7 +53,7 @@ if callfunc == 'initialize':
 
   try:
     nmclient.nmclient_signedsay(nmhandle, "ChangeOwnerInformation", myvessel, "\n\/\\\"")
-  except NMClientException:
+  except nmclient.NMClientException:
     pass
   else:
     nmclient.nmclient_signedsay(nmhandle, "ChangeOwnerInformation", myvessel, origstate)

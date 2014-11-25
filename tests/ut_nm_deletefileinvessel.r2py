@@ -55,7 +55,7 @@ if callfunc == 'initialize':
   try:
     # should fail (we wiped the file)...
     nmclient.nmclient_signedsay(nmhandle, "RetrieveFileFromVessel", myvessel, "hello")
-  except NMClientException:
+  except nmclient.NMClientException:
     pass
   else:
     raise Exception, "File exists after deletion!"

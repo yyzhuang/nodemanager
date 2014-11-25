@@ -71,7 +71,7 @@ if callfunc == 'initialize':
   # try to change the owner to the new credentials
   try:
     nmclient.nmclient_signedsay(nmhandle, "ChangeOwner", myvessel, rsa_publickey_to_string(keys[0]))
-  except NMClientException:
+  except nmclient.NMClientException:
     pass
   
   # update our information...
@@ -95,7 +95,7 @@ if callfunc == 'initialize':
       test_pass=True
     else:
       advert_change=True
-  except NMClientException:
+  except nmclient.NMClientException:
     test_pass = True
   
   if advert_change:

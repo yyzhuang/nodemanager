@@ -64,7 +64,7 @@ if callfunc == 'initialize':
   # my old credentials shouldn't work anymore
   try:
     nmclient.nmclient_signedsay(nmhandle, "ChangeAdvertise", myvessel, True)
-  except NMClientException:
+  except nmclient.NMClientException:
     pass
   else:
     raise Exception, "Was allowed to change advertisements when I wasn't the owner!"

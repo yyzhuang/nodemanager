@@ -53,7 +53,7 @@ if callfunc == 'initialize':
   
   try:
     nmclient.nmclient_signedsay(nmhandle, "AddFileToVessel", myvessel, "private_foo", data)
-  except NMClientException:
+  except nmclient.NMClientException:
     pass
   else:
     log("Able to add file starting with 'private_' to vessel")

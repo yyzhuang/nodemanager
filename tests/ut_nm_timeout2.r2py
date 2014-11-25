@@ -53,7 +53,7 @@ if callfunc == 'initialize':
   data = "hellodata!"*1000
   try: 
     nmclient.nmclient_signedsay(nmhandle, "AddFileToVessel", myvessel, "hello",data)
-  except NMClientException, e:
+  except nmclient.NMClientException, e:
     log("Unexpected exception", e, "\n")
     exitall()
   else:
