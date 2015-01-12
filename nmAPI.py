@@ -369,8 +369,9 @@ def startvessel_ex(vesselname, prog_platform, argstring):
         ip_iface_preference_str += "--nootherips "
     
   # Find the location where the sandbox files is located. Location of repyV1, repyV2 etc.
-  prog_platform_location = os.path.join(prog_platform_dir[prog_platform], "repy.py")
- 
+  #prog_platform_location = os.path.join(prog_platform_dir[prog_platform], "repy.py")
+  prog_platform_location = "repy.py"
+  
   # I use absolute paths so that repy can still find the files after it 
   # changes directories...
   
