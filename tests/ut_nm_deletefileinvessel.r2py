@@ -7,25 +7,7 @@ This test verifies the DeleteFileInVessel method by adding a file, deleting it, 
 
 """
 
-affix_stack = dy_import_module("affix_stack.r2py")
-rsa = dy_import_module("rsa.r2py")
-sha = dy_import_module("sha.r2py")
-
-
-nodeman_file = openfile("nodeman.cfg", False)
-nodeman_content = "mydict = " + nodeman_file.readat(10000, 0)
-nodeman_file.close()
-
-new_namespace = createvirtualnamespace(nodeman_content, "nodeman")
-nodeman_dict = new_namespace.evaluate({})
-mypubkey = rsa.rsa_publickey_to_string(nodeman_dict["mydict"]["publickey"]).replace(" ", "")
-
-my_name = sha.sha_hexhash(mypubkey)
-myaffix = affix_stack.AffixStack("(CoordinationAffix)(NamingAndResolverAffix)")
-
-
-
-openconnection = myaffix.openconnection
+my_name=getmyip()
 
 time = dy_import_module("time.r2py")
 nmclient = dy_import_module("nmclient.r2py")
@@ -35,7 +17,7 @@ if callfunc == 'initialize':
 
   pubkey = {'e': 1515278400394037168869631887206225761783197636247636149274740854708478416229147500580877416652289990968676310353790883501744269103521055894342395180721167L, 'n': 8811850224687278929671477591179591903829730117649785862652866020803862826558480006479605958786097112503418194852731900367494958963787480076175614578652735061071079458992502737148356289391380249696938882025028801032667062564713111819847043202173425187133883586347323838509679062142786013585264788548556099117804213139295498187634341184917970175566549405203725955179602584979965820196023950630399933075080549044334508921319264315718790337460536601263126663173385674250739895046814277313031265034275415434440823182691254039184953842629364697394327806074576199279943114384828602178957150547925812518281418481896604655037L}
   time.time_updatetime(34612)
-  nmhandle = nmclient.nmclient_createhandle(my_name, <nodemanager_port>)
+  nmhandle = nmclient.nmclient_createhandle(my_name, 1224)
   
   myhandleinfo = nmclient.nmclient_get_handle_info(nmhandle)
 

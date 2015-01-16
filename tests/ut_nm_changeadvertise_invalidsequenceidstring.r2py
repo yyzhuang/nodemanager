@@ -5,25 +5,7 @@ Author: Cosmin Barsan
 Description:
 This test verifies that the change advertise method does not chage the advertise status when an invalid sequence id of type string is specified when creating the handle.
 """
-affix_stack = dy_import_module("affix_stack.r2py")
-rsa = dy_import_module("rsa.r2py")
-sha = dy_import_module("sha.r2py")
-
-
-nodeman_file = openfile("nodeman.cfg", False)
-nodeman_content = "mydict = " + nodeman_file.readat(10000, 0)
-nodeman_file.close()
-
-new_namespace = createvirtualnamespace(nodeman_content, "nodeman")
-nodeman_dict = new_namespace.evaluate({})
-mypubkey = rsa.rsa_publickey_to_string(nodeman_dict["mydict"]["publickey"]).replace(" ", "")
-
-my_name = sha.sha_hexhash(mypubkey)
-myaffix = affix_stack.AffixStack("(CoordinationAffix)(NamingAndResolverAffix)")
-
-
-
-openconnection = myaffix.openconnection
+my_name=getmyip()
 
 time = dy_import_module("time.r2py")
 nmclient = dy_import_module("nmclient.r2py")
@@ -31,7 +13,7 @@ nmclient = dy_import_module("nmclient.r2py")
 if callfunc == 'initialize':
 
   time.time_updatetime(34612)
-  nmhandle = nmclient.nmclient_createhandle(my_name, <nodemanager_port>, sequenceid="asdf")
+  nmhandle = nmclient.nmclient_createhandle(my_name, 1224, sequenceid="asdf")
   
   myhandleinfo = nmclient.nmclient_get_handle_info(nmhandle)
 
@@ -61,7 +43,7 @@ if callfunc == 'initialize':
 
   if vesselinfo['vessels'][myvessel]['advertise'] != origstate:
     # Change it back...
-    nmhandle = nmclient.nmclient_createhandle(my_name, <nodemanager_port>)
+    nmhandle = nmclient.nmclient_createhandle(my_name, 1224)
     nmclient.nmclient_set_handle_info(nmhandle, myhandleinfo)
     
     nmclient.nmclient_signedsay(nmhandle, "ChangeAdvertise", myvessel, origstate)

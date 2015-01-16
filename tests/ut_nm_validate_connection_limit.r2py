@@ -1,24 +1,6 @@
 #pragma repy restrictions.test dylink.r2py
 
-affix_stack = dy_import_module("affix_stack.r2py")
-rsa = dy_import_module("rsa.r2py")
-sha = dy_import_module("sha.r2py")
-
-
-nodeman_file = openfile("nodeman.cfg", False)
-nodeman_content = "mydict = " + nodeman_file.readat(10000, 0)
-nodeman_file.close()
-
-new_namespace = createvirtualnamespace(nodeman_content, "nodeman")
-nodeman_dict = new_namespace.evaluate({})
-mypubkey = rsa.rsa_publickey_to_string(nodeman_dict["mydict"]["publickey"]).replace(" ", "")
-
-my_name = sha.sha_hexhash(mypubkey)
-myaffix = affix_stack.AffixStack("(CoordinationAffix)(NamingAndResolverAffix)")
-
-
-
-openconnection = myaffix.openconnection
+my_name = getmyip()
 
 def waitonsocket(socketobj, num):
   try:
@@ -40,11 +22,11 @@ if callfunc == 'initialize':
   # nm accept only three cons from an IP, since it may be processing one, the
   # maximum I should be able to get and use is four.   The other should be
   # closed.
-  junk1 = openconnection(ip,<nodemanager_port>, ip, <connport>, timeout)
-  junk2 = openconnection(ip,<nodemanager_port>, ip, <connport1>, timeout)
-  junk3 = openconnection(ip,<nodemanager_port>, ip, <connport2>, timeout)
-  junk4 = openconnection(ip,<nodemanager_port>, ip, <connport3>, timeout)
-  junk5 = openconnection(ip,<nodemanager_port>, ip, <connport4>, timeout)
+  junk1 = openconnection(ip,1224, ip, 12345, timeout)
+  junk2 = openconnection(ip,1224, ip, 12346, timeout)
+  junk3 = openconnection(ip,1224, ip, 12347, timeout)
+  junk4 = openconnection(ip,1224, ip, 12348, timeout)
+  junk5 = openconnection(ip,1224, ip, 12349, timeout)
   createthread(waitonsocket(junk1,1))
   createthread(waitonsocket(junk2,2))
   createthread(waitonsocket(junk3,3))

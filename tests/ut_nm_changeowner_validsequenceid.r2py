@@ -6,28 +6,11 @@ Description:
 The test sends a change user request with sequence id 0 followed by a change advertise request with sequence id 1.
 
 """
+my_name=getmyip()
 
-affix_stack = dy_import_module("affix_stack.r2py")
-rsa = dy_import_module("rsa.r2py")
-sha = dy_import_module("sha.r2py")
-
-
-nodeman_file = openfile("nodeman.cfg", False)
-nodeman_content = "mydict = " + nodeman_file.readat(10000, 0)
-nodeman_file.close()
-
-new_namespace = createvirtualnamespace(nodeman_content, "nodeman")
-nodeman_dict = new_namespace.evaluate({})
-mypubkey = rsa.rsa_publickey_to_string(nodeman_dict["mydict"]["publickey"]).replace(" ", "")
-
-my_name = sha.sha_hexhash(mypubkey)
-myaffix = affix_stack.AffixStack("(CoordinationAffix)(NamingAndResolverAffix)")
-
-
-
-openconnection = myaffix.openconnection
 
 time = dy_import_module("time.r2py")
+rsa = dy_import_module("rsa.r2py")
 nmclient = dy_import_module("nmclient.r2py")
 
 if callfunc == 'initialize':
@@ -39,7 +22,7 @@ if callfunc == 'initialize':
 
   time.time_updatetime(34612)
   
-  nmhandle = nmclient.nmclient_createhandle(my_name, <nodemanager_port>)  
+  nmhandle = nmclient.nmclient_createhandle(my_name, 1224)  
   myhandleinfo = nmclient.nmclient_get_handle_info(nmhandle)
   myhandleinfo['publickey'] = origpub
   myhandleinfo['privatekey'] = origpriv
@@ -54,7 +37,7 @@ if callfunc == 'initialize':
   nmclient.nmclient_signedsay(nmhandle, "ChangeAdvertise", myvessel, False)
   
   #set up a new handle with sequence id 0
-  nmhandle = nmclient.nmclient_createhandle(my_name, <nodemanager_port>, sequenceid=('req',0))  
+  nmhandle = nmclient.nmclient_createhandle(my_name, 1224, sequenceid=('req',0))  
   myhandleinfo = nmclient.nmclient_get_handle_info(nmhandle)
   myhandleinfo['publickey'] = origpub
   myhandleinfo['privatekey'] = origpriv
@@ -68,7 +51,7 @@ if callfunc == 'initialize':
     raise Exception, "Change owner request with sequence id 0 failed"
 
   # use the credentials I just created...
-  nmhandle = nmclient.nmclient_createhandle(my_name, <nodemanager_port>, sequenceid=('req',1))
+  nmhandle = nmclient.nmclient_createhandle(my_name, 1224, sequenceid=('req',1))
   myhandleinfo = nmclient.nmclient_get_handle_info(nmhandle)
   myhandleinfo['publickey'] = keys[0]
   myhandleinfo['privatekey'] = keys[1]
@@ -80,7 +63,7 @@ if callfunc == 'initialize':
     nmclient.nmclient_signedsay(nmhandle, "ChangeOwner", myvessel, rsa.rsa_publickey_to_string(origpub))
   except nmclient.NMClientException:
     #try to change owner back using a request with no sequence id
-    nmhandle = nmclient.nmclient_createhandle(my_name, <nodemanager_port>) 
+    nmhandle = nmclient.nmclient_createhandle(my_name, 1224) 
     myhandleinfo = nmclient.nmclient_get_handle_info(nmhandle)
     myhandleinfo['publickey'] = keys[0]
     myhandleinfo['privatekey'] = keys[1]
